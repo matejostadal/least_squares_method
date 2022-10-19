@@ -7,7 +7,7 @@ def least_squares(points, values, weights, poly_degree=1, phi_polynoms=None):
 
     test_input(points, values, weights, poly_degree, phi_polynoms)
 
-    if phi_polynoms == None:
+    if not phi_polynoms:
         phi_functions = construct_power_functions(poly_degree + 1)
         phi_polynoms = construct_phi_polynoms(poly_degree + 1)
     else:
@@ -18,15 +18,24 @@ def least_squares(points, values, weights, poly_degree=1, phi_polynoms=None):
 
     for j in range(poly_degree + 1):
         for i in range(j, poly_degree + 1):
-            equations_system_left[i][j] = equations_system_left[j][i] = discrete_dot_product(phi_functions[j], phi_functions[i], points, weights)
-
+            equations_system_left[i][j] = equations_system_left[j][i] = discrete_dot_product(
+                phi_functions[j],
+                phi_functions[i],
+                points,
+                weights,
+            )
 
     # calculates the values of the right side of the system
-    f = construct_value_function(points, values)
     equations_system_right = np.empty(poly_degree + 1, float)
 
     for k in range(poly_degree + 1):
-        equations_system_right[k] = discrete_dot_product(f, phi_functions[k], points, weights)
+        equations_system_right[k] = discrete_dot_product(
+            # lambda(points[0]) => values[0]  (lambda represents the f function)
+            lambda point: values[points.index(point)],
+            phi_functions[k],
+            points,
+            weights
+        )
 
     # print(equations_system_left)
     # print(equations_system_right)
@@ -38,7 +47,7 @@ def least_squares(points, values, weights, poly_degree=1, phi_polynoms=None):
     # finds the approximation polynom
     # counts the sum of ci * phii(x)
     approx_polynom = []
- 
+
     for coeff, phi in zip(coefficients, phi_polynoms):
         approx_polynom = np.polyadd(approx_polynom, np.polymul(coeff, phi))
 
@@ -46,17 +55,6 @@ def least_squares(points, values, weights, poly_degree=1, phi_polynoms=None):
     return approx_polynom
 
 
-def discrete_dot_product(func1, func2, points, weights):
-    """Calculates the discrete dot product for given functions, points and weights."""
-    product = 0
-
-    for point, weight in zip(points, weights):
-        product += weight * func1(point) * func2(point)
-
-    return product
-
-
-# INPUT TEST
 def test_input(points, values, weights, poly_degree, phi_polynoms):
     """Checks if all input vectors are of the same dimension.
     Then checks if wanted polynom degree can be found with given phi_functions.
@@ -66,39 +64,37 @@ def test_input(points, values, weights, poly_degree, phi_polynoms):
 
     """
     # vectors dimension check
-    if not (len(points) ==  len(values) == len(weights)):
+    if not same_length([points, values, weights]):
         raise ValueError("Method could not be performed. Check the dimensions of given input vectors.")
 
     # degree suitability check
-    if phi_polynoms != None:
+    if phi_polynoms:
         if poly_degree != len(phi_polynoms) - 1:
-            raise ValueError("Method could not be performed. Incorrect count of phi functions or degree of wanted approximation polynom.")
+            raise ValueError(
+                "Method could not be performed. Incorrect count of phi functions or degree of wanted approximation polynom."
+                )
 
         for phi_polynom in phi_polynoms:
             if len(phi_polynom) - 1 > poly_degree:
-                raise ValueError("Method could not be performed. Phi function of larger degree than wanted approximation polynom.")
+                raise ValueError(
+                    "Method could not be performed. Phi function of larger degree than wanted approximation polynom."
+                    )
 
     # checking for reoccuring points
-    for point in points:
-        if points.count(point) > 1:
-            raise ValueError("Method could not be performed. Reoccuring points.")
+    if any([points.count(point) > 1 for point in points]):
+        raise ValueError("Method could not be performed. Reoccuring points.")
 
 
-# FUNCTIONS DEFINING
-def construct_value_function(points, values):
-    """Creates a function that returns a value from input values for given point from input.
-    
-    Examples:
-        >>> value_function(points[0])
-        values[0]
-        >>> value_function(points[7])
-        values[7]
+def same_length(values):
+    """Check if each value in values is of the same length."""
+    return len(set([len(value) for value in values])) <= 1
 
-    """
-    def value_function(point):
-        return values[points.index(point)]
 
-    return value_function
+def discrete_dot_product(func1, func2, points, weights):
+    """Calculates the discrete dot product for given functions, points and weights."""
+    return sum(
+        [weight * func1(point) * func2(point) for point, weight in zip(points, weights)]
+    )
 
 
 def construct_power_functions(max_power):
@@ -113,10 +109,7 @@ def construct_power_functions(max_power):
 
 def create_power_function(exponent):
     """Creates a power function with given exponent."""
-    def power_function(point):
-        return point ** exponent
-
-    return power_function
+    return lambda point: point ** exponent
 
 
 def construct_phi_polynoms(max_power):
@@ -129,6 +122,7 @@ def construct_phi_polynoms(max_power):
         phi_polynoms.append(polynom)
 
     return phi_polynoms
+
 
 # CUSTOM PHI FUNCTIONS
 def construct_custom_functions(phi_polynoms):
@@ -168,43 +162,3 @@ def polynomial_plot(points, values, approx_poly):
     plt.plot(x, y, color="blue", linewidth=2, label='approximation polynom')
     plt.legend()
     plt.show()
-
-
-# TESTING
-
-# 1)
-points = [-2, -1, 0, 1, 2, 3]
-values = [-15, -8, -7, -6, 1, 20]
-weights = [1, 1, 1, 1, 1, 1]
-
-# a)
-approx_poly = least_squares(points, values, weights, poly_degree=1)
-# approx_poly = least_squares(points, values, weights, poly_degree=4)
-
-# b)
-# weights = [1/8, 1/2, 1, 1, 1/2, 1/8]
-# approx_poly = least_squares(points, values, weights, poly_degree=1)
-
-# c)
-# approx_poly = least_squares(points, values, weights, poly_degree=2)
-
-# 2)
-
-# points = [-3, -2, -1, 0, 1, 2, 3]
-# values = [4, 2, 3, 0, -1, -2, -5]
-# weights = [1, 1, 1, 1, 1, 1, 1]
-
-# approx_poly = least_squares(points, values, weights, poly_degree=2)
-
-# 3)
-
-# points = [-1, -1/2, 0, 1/2, 1]
-# values = [3, 1, 2, 7, 8]
-# weights = [1, 1, 1, 1, 1]
-
-# approx_poly = least_squares(points, values, weights, poly_degree=2, phi_polynoms=[[1], [1, 0], [2, 0, -1]])
-
-# approx_poly = least_squares(points, values, weights, poly_degree=2)
-
-print(approx_poly)
-polynomial_plot(points, values, approx_poly)
