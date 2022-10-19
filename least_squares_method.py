@@ -9,14 +9,25 @@ def least_squares(points, values, weights, poly_degree=1, phi_polynoms=None):
 
     if not phi_polynoms:
         phi_functions = construct_power_functions(poly_degree + 1)
-        phi_polynoms = construct_phi_polynoms(poly_degree + 1)
     else:
         phi_functions = construct_custom_functions(phi_polynoms)
 
-    # calculates the values of the left side of the system
+    # representation of the system of equations
     equations_system_left = np.empty((poly_degree + 1, poly_degree + 1), float)
+    equations_system_right = np.empty(poly_degree + 1, float)
 
     for j in range(poly_degree + 1):
+
+        # filling the right side
+        equations_system_right[j] = discrete_dot_product(
+            # lambda represents the f function (f(points[1]) => values[1])
+            lambda point: values[points.index(point)],
+            phi_functions[j],
+            points,
+            weights
+        )
+
+        # filling the left side
         for i in range(j, poly_degree + 1):
             equations_system_left[i][j] = equations_system_left[j][i] = discrete_dot_product(
                 phi_functions[j],
@@ -25,18 +36,6 @@ def least_squares(points, values, weights, poly_degree=1, phi_polynoms=None):
                 weights,
             )
 
-    # calculates the values of the right side of the system
-    equations_system_right = np.empty(poly_degree + 1, float)
-
-    for k in range(poly_degree + 1):
-        equations_system_right[k] = discrete_dot_product(
-            # lambda(points[0]) => values[0]  (lambda represents the f function)
-            lambda point: values[points.index(point)],
-            phi_functions[k],
-            points,
-            weights
-        )
-
     # print(equations_system_left)
     # print(equations_system_right)
 
@@ -44,7 +43,12 @@ def least_squares(points, values, weights, poly_degree=1, phi_polynoms=None):
     # coefficients = [c0, c1, ..., cm]
     coefficients = np.linalg.solve(equations_system_left, equations_system_right)
 
-    # finds the approximation polynom
+    
+    # if all phi functions were just power functions
+    # then the found coefficients are also the coefficients of the approximation polynom
+    if not phi_polynoms:
+        return np.flip(coefficients)
+
     # counts the sum of ci * phii(x)
     approx_polynom = []
 
@@ -112,18 +116,6 @@ def create_power_function(exponent):
     return lambda point: point ** exponent
 
 
-def construct_phi_polynoms(max_power):
-    """Constructs a polynomial representation of a function in a form: x^power."""
-    phi_polynoms = []
-
-    for power in range(max_power):
-        polynom = [0] * (power + 1)
-        polynom[0] = 1
-        phi_polynoms.append(polynom)
-
-    return phi_polynoms
-
-
 # CUSTOM PHI FUNCTIONS
 def construct_custom_functions(phi_polynoms):
     """Creates a list of functions, that act like polynoms given by coefficients."""
@@ -159,6 +151,6 @@ def polynomial_plot(points, values, approx_poly):
     plt.scatter(points, values, color="red", marker="x", s=200, linewidth=2, label="points")
 
     # curve
-    plt.plot(x, y, color="blue", linewidth=2, label='approximation polynom')
+    plt.plot(x, y, color="blue", linewidth=2, label="approximation polynom")
     plt.legend()
     plt.show()
